@@ -1,6 +1,5 @@
 package main
 
-// Newest
 import (
 	"fmt"
 	"net/http"
