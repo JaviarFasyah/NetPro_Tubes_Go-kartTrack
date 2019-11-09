@@ -1,0 +1,5 @@
+http: "s"
+port: 8001
+dir: "static"
+cert: "server.crt"
+key: "server.key"
