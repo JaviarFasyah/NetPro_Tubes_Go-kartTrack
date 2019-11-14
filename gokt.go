@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -29,11 +28,11 @@ var dconf = "gokt.yaml"
 func (c *conf) readconf(i string) *conf {
 	yamlFile, err := ioutil.ReadFile(i)
 	if err != nil {
-		log.Println(err)
+		fmt.Printf("error: %v file not found, switch using default configuration\n", i)
 	}
 	err = yaml.Unmarshal(yamlFile, c)
 	if err != nil {
-		log.Println(err)
+		fmt.Printf("error: can't read %v file, switch using default configuration\n", i)
 	}
 	return c
 }
@@ -44,20 +43,22 @@ func help() {
 
 func servehttp1(i string, j conf) {
 	var c conf
+	var d *conf
 	var lcnf = conf{
 		Port: j.Port,
 		Dir:  j.Dir,
 	}
+	d = c.readconf(i)
 	if lcnf.Port == 0 {
-		if c.readconf(i).Port != 0 {
-			lcnf.Port = c.readconf(i).Port
+		if d.Port != 0 {
+			lcnf.Port = d.Port
 		} else {
 			lcnf.Port = dcnf.Port
 		}
 	}
 	if lcnf.Dir == "" {
-		if c.readconf(i).Dir != "" {
-			lcnf.Dir = c.readconf(i).Dir
+		if d.Dir != "" {
+			lcnf.Dir = d.Dir
 		} else {
 			lcnf.Dir = dcnf.Dir
 		}
@@ -72,36 +73,38 @@ func servehttp2(i string) {}
 
 func servehttps(i string, j conf) {
 	var c conf
+	var d *conf
 	var lcnf = conf{
 		Port: j.Port,
 		Dir:  j.Dir,
 		Cert: j.Cert,
 		Key:  j.Key,
 	}
+	d = c.readconf(i)
 	if lcnf.Port == 0 {
-		if c.readconf(i).Port != 0 {
-			lcnf.Port = c.readconf(i).Port
+		if d.Port != 0 {
+			lcnf.Port = d.Port
 		} else {
 			lcnf.Port = dcnf.Port
 		}
 	}
 	if lcnf.Dir == "" {
-		if c.readconf(i).Dir != "" {
-			lcnf.Dir = c.readconf(i).Dir
+		if d.Dir != "" {
+			lcnf.Dir = d.Dir
 		} else {
 			lcnf.Dir = dcnf.Dir
 		}
 	}
 	if lcnf.Cert == "" {
-		if c.readconf(i).Cert != "" {
-			lcnf.Cert = c.readconf(i).Cert
+		if d.Cert != "" {
+			lcnf.Cert = d.Cert
 		} else {
 			lcnf.Cert = dcnf.Cert
 		}
 	}
 	if lcnf.Key == "" {
-		if c.readconf(i).Key != "" {
-			lcnf.Key = c.readconf(i).Key
+		if d.Key != "" {
+			lcnf.Key = d.Key
 		} else {
 			lcnf.Key = dcnf.Key
 		}
@@ -137,6 +140,8 @@ func main() {
 			servehttps(*fconf, fcnf)
 		} else if *fhttp == "2" {
 			fmt.Println("http2")
+		} else {
+			servehttp1(dconf, fcnf)
 		}
 	} else if *fhttp == "" && *fconf != "" {
 		if rcnf.readconf(*fconf).Http == "1" {
@@ -145,6 +150,8 @@ func main() {
 			servehttps(*fconf, fcnf)
 		} else if rcnf.readconf(*fconf).Http == "2" {
 			fmt.Println("http2")
+		} else {
+			servehttp1(dconf, fcnf)
 		}
 	} else if *fhttp != "" && *fconf == "" {
 		if *fhttp == "1" {
@@ -153,6 +160,8 @@ func main() {
 			servehttps(dconf, fcnf)
 		} else if *fhttp == "2" {
 			fmt.Println("http2")
+		} else {
+			servehttp1(dconf, fcnf)
 		}
 	} else if *fhttp == "" && *fconf == "" {
 		servehttp1(dconf, fcnf)
