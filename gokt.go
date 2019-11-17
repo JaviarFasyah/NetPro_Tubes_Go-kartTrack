@@ -38,7 +38,19 @@ func (c *conf) readconf(i string) *conf {
 }
 
 func help() {
-	fmt.Println("help")
+	fmt.Println("Go-kart Track Web Server v1.0")
+	fmt.Println("    This web server will use parameter input, configuration file (.yaml), or hard-coded configuration (if")
+	fmt.Println("no parameter input nor configuration file given) to run. To run with parameter input, use the followings:")
+	fmt.Println("    > '-conf' : The configuration file used by this server (.yaml)")
+	fmt.Println("    > '-http' : The protocol used by this server ('1' for HTTP/1.1, '2' for HTTP/2, 's' for HTTPS)")
+	fmt.Println("    > '-port' : The port number used by this server")
+	fmt.Println("    > '-dir'  : The server root directory used by this server")
+	fmt.Println("    > '-cert' : The certificate file used by this server (HTTPS protocol)")
+	fmt.Println("    > '-key'  : The key file used by this server (HTTPS protocol)")
+	fmt.Println("For example: './gokt -http s -port 8080 -conf myConf/conf.yaml', this will tell the server to run using")
+	fmt.Println("HTTPS protocol, in port 8080, and read the conf.yaml file in myConf folder for the other configurations.")
+	fmt.Println("The inside of the configuration file should mention 'http:', 'port:', 'dir:', 'cert:', 'key:' and their")
+	fmt.Println("value. The default configuration file is 'gokt.yaml' file, default root directory is the folder 'view'.")
 }
 
 func servehttp1(i string, j conf) {
@@ -69,7 +81,7 @@ func servehttp1(i string, j conf) {
 	http.ListenAndServe(":"+strconv.Itoa(lcnf.Port), nil)
 }
 
-func servehttp2(i string) {}
+func servehttp2() {}
 
 func servehttps(i string, j conf) {
 	var c conf
@@ -139,7 +151,7 @@ func main() {
 		} else if *fhttp == "s" || *fhttp == "S" {
 			servehttps(*fconf, fcnf)
 		} else if *fhttp == "2" {
-			fmt.Println("http2")
+			servehttp2()
 		} else {
 			servehttp1(dconf, fcnf)
 		}
@@ -149,7 +161,7 @@ func main() {
 		} else if rcnf.readconf(*fconf).Http == "s" || rcnf.readconf(*fconf).Http == "S" {
 			servehttps(*fconf, fcnf)
 		} else if rcnf.readconf(*fconf).Http == "2" {
-			fmt.Println("http2")
+			servehttp2()
 		} else {
 			servehttp1(dconf, fcnf)
 		}
@@ -159,7 +171,7 @@ func main() {
 		} else if *fhttp == "s" || *fhttp == "S" {
 			servehttps(dconf, fcnf)
 		} else if *fhttp == "2" {
-			fmt.Println("http2")
+			servehttp2()
 		} else {
 			servehttp1(dconf, fcnf)
 		}
