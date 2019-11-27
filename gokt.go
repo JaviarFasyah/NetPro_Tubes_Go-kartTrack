@@ -19,15 +19,15 @@ type conf struct {
 var dcnf = conf{
 	Http: "1",
 	Port: 8000,
-	Dir:  "view",
-	Cert: "server.crt",
-	Key:  "server.key",
+	Dir:  "dir_gokt",
+	Cert: "crt_gokt.crt",
+	Key:  "key_gokt.key",
 }
-var dconf = "gokt.yaml"
+var dconf = "cnf_gokt.yaml"
 
 func (c *conf) readconf(i string) *conf {
 	yamlFile, err := ioutil.ReadFile(i)
-	if err != nil {
+	if err != nil && i != "" {
 		fmt.Printf("error: %v file not found, switch using default configuration\n", i)
 	}
 	err = yaml.Unmarshal(yamlFile, c)
@@ -38,7 +38,9 @@ func (c *conf) readconf(i string) *conf {
 }
 
 func help() {
-	fmt.Println("Go-kart Track Web Server v1.0")
+	fmt.Println("")
+	fmt.Println("  < Go-kart Track Web Server v1.0 >")
+	fmt.Println("")
 	fmt.Println("    This web server will use parameter input, configuration file (.yaml), or hard-coded configuration (if")
 	fmt.Println("no parameter input or configuration file given) to run. To run with parameter input, use the followings:")
 	fmt.Println("    > '-conf' : The configuration file used by this server (.yaml)")
@@ -48,9 +50,10 @@ func help() {
 	fmt.Println("    > '-cert' : The certificate file used by this server (HTTPS protocol)")
 	fmt.Println("    > '-key'  : The key file used by this server (HTTPS protocol)")
 	fmt.Println("For example: './gokt -http s -port 8080 -conf myConf/conf.yaml', this will tell the server to run using")
-	fmt.Println("HTTPS protocol, in port 8080, and read the conf.yaml file in myConf folder for the other configurations.")
+	fmt.Println("HTTPS/2 protocol, in port 8080, and read the conf.yaml file in myConf folder for the other configurations.")
 	fmt.Println("The inside of the configuration file should mention 'http:', 'port:', 'dir:', 'cert:', 'key:' and their")
-	fmt.Println("value. The default configuration file is 'gokt.yaml' file, default root directory is the folder 'view'.")
+	fmt.Println("value. The default configuration file is 'cnf_gokt.yaml' file, default root directory is the folder 'dir_gokt'.")
+	fmt.Println("")
 }
 
 func servehttp1(i string, j conf) {
@@ -68,8 +71,8 @@ func servehttp1(i string, j conf) {
 			lcnf.Port = dcnf.Port
 		}
 	}
-	if lcnf.Dir == "" || lcnf.Dir == "." {
-		if d.Dir == "" || d.Dir == "." {
+	if lcnf.Dir == "" || lcnf.Dir == "." || lcnf.Dir == "/" {
+		if d.Dir == "" || d.Dir == "." || d.Dir == "/" {
 			lcnf.Dir = dcnf.Dir
 		} else {
 			lcnf.Dir = d.Dir
@@ -77,7 +80,7 @@ func servehttp1(i string, j conf) {
 	}
 	fs := http.FileServer(http.Dir(lcnf.Dir))
 	http.Handle("/", fs)
-	fmt.Println("running on HTTP/1.1 |", "server directory:", lcnf.Dir, "| port:", lcnf.Port)
+	fmt.Println("Go-kart running on HTTP/1.1 |", "server directory:", lcnf.Dir, "| port:", lcnf.Port)
 	http.ListenAndServe(":"+strconv.Itoa(lcnf.Port), nil)
 }
 
@@ -98,8 +101,8 @@ func servehttps(i string, j conf) {
 			lcnf.Port = dcnf.Port
 		}
 	}
-	if lcnf.Dir == "" || lcnf.Dir == "." {
-		if d.Dir == "" || d.Dir == "." {
+	if lcnf.Dir == "" || lcnf.Dir == "." || lcnf.Dir == "/" {
+		if d.Dir == "" || d.Dir == "." || d.Dir == "/" {
 			lcnf.Dir = dcnf.Dir
 		} else {
 			lcnf.Dir = d.Dir
@@ -121,15 +124,16 @@ func servehttps(i string, j conf) {
 	}
 	fs := http.FileServer(http.Dir(lcnf.Dir))
 	http.Handle("/", fs)
-	fmt.Println("running on HTTPS/2 |", "server directory:", lcnf.Dir, "| port:", lcnf.Port)
+	fmt.Println("Go-kart running on HTTPS/2 |", "server directory:", lcnf.Dir, "| port:", lcnf.Port, "| certificate:", lcnf.Cert,
+		"| key:", lcnf.Key)
 	http.ListenAndServeTLS(":"+strconv.Itoa(lcnf.Port), lcnf.Cert, lcnf.Key, nil)
-	fmt.Printf("error: unable to find %v and/or %v file to run HTTPS/2", lcnf.Cert, lcnf.Key)
+	fmt.Printf("error: unable to find %v and/or %v file to run on HTTPS/2", lcnf.Cert, lcnf.Key)
 }
 
 func main() {
 	var rcnf conf
 	var bcnf *conf
-	fhelp := flag.Bool("help", false, "help")
+	fhelp := flag.Bool("help", false, "Show brief information on how this server works")
 	fconf := flag.String("conf", "", "The configuration file used by this server (.yaml)")
 	fhttp := flag.String("http", "", "The protocol used by this server ('1' for HTTP/1.1 and 's'/'S' for HTTPS/2)")
 	fport := flag.Int("port", 0, "The port number used by this server")
@@ -158,7 +162,7 @@ func main() {
 			} else if bcnf.Http == "s" || bcnf.Http == "S" {
 				servehttps(dconf, fcnf)
 			} else {
-				servehttp1(dconf, fcnf)
+				servehttp1("", fcnf)
 			}
 		}
 	} else if *fhttp == "" && *fconf != "" {
@@ -174,7 +178,7 @@ func main() {
 			} else if bcnf.Http == "s" || bcnf.Http == "S" {
 				servehttps(dconf, fcnf)
 			} else {
-				servehttp1(dconf, fcnf)
+				servehttp1("", fcnf)
 			}
 		}
 	} else if *fhttp != "" && *fconf == "" {
@@ -190,7 +194,7 @@ func main() {
 			} else if bcnf.Http == "s" || bcnf.Http == "S" {
 				servehttps(dconf, fcnf)
 			} else {
-				servehttp1(dconf, fcnf)
+				servehttp1("", fcnf)
 			}
 		}
 	} else if *fhttp == "" && *fconf == "" {
@@ -200,7 +204,7 @@ func main() {
 		} else if bcnf.Http == "s" || bcnf.Http == "S" {
 			servehttps(dconf, fcnf)
 		} else {
-			servehttp1(dconf, fcnf)
+			servehttp1("", fcnf)
 		}
 	}
 }
