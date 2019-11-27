@@ -1,0 +1,5 @@
+http: "s"
+port: 8000
+dir: "dir_gokt"
+cert: "crt_gokt.crt"
+key: "key_gokt.key"

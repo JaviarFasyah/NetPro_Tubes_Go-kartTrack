@@ -1,5 +1,5 @@
-http: "s"
+http: "1"
 port: 8001
 dir: "static"
-cert: "server.crt"
-key: "server.key"
+cert: "cert/server.crt"
+key: "cert/server.key"
