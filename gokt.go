@@ -1,6 +1,5 @@
 package main
 
-// Newest
 import (
 	"flag"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"strconv"
 
 	"golang.org/x/net/http2"
+	h2c "golang.org/x/net/http2/h2c"
 	"gopkg.in/yaml.v2"
 )
 
@@ -45,7 +45,7 @@ func help() {
 	fmt.Println("    This web server will use parameter input, configuration file (.yaml), or hard-coded configuration (if")
 	fmt.Println("no parameter input or configuration file given) to run. To run with parameter input, use the followings:")
 	fmt.Println("    > '-conf' : The configuration file used by this server (.yaml)")
-	fmt.Println("    > '-http' : The protocol used by this server ('1' for HTTP/1.1 and 's'/'S' for HTTPS/2)")
+	fmt.Println("    > '-http' : The protocol used by this server ('1' for HTTP/1.1, '2' for HTTP/2, and 's'/'S' for HTTPS)")
 	fmt.Println("    > '-port' : The port number used by this server")
 	fmt.Println("    > '-dir'  : The server root directory used by this server")
 	fmt.Println("    > '-cert' : The certificate file used by this server (HTTPS protocol)")
@@ -125,20 +125,59 @@ func servehttps(i string, j conf) {
 	}
 	fs := http.FileServer(http.Dir(lcnf.Dir))
 	http.Handle("/", fs)
-	fmt.Println("Go-kart running on HTTPS/2 |", "server directory:", lcnf.Dir, "| port:", lcnf.Port, "| certificate:", lcnf.Cert,
+	fmt.Println("Go-kart running on HTTPS |", "server directory:", lcnf.Dir, "| port:", lcnf.Port, "| certificate:", lcnf.Cert,
 		"| key:", lcnf.Key)
-	http.ListenAndServeTLS(":"+strconv.Itoa(lcnf.Port), lcnf.Cert, lcnf.Key, nil)
-	fmt.Printf("error: unable to find %v and/or %v file to run on HTTPS/2", lcnf.Cert, lcnf.Key)
+	err := http.ListenAndServeTLS(":"+strconv.Itoa(lcnf.Port), lcnf.Cert, lcnf.Key, nil)
+	if err != nil {
+		fmt.Printf("error: unable to find %v and/or %v file to run on HTTPS\n", lcnf.Cert, lcnf.Key)
+	}
 }
 
-func servehttp2() {
-	var srv http.Server
-	srv.Addr = ":8000"
-	http2.ConfigureServer(&srv, nil)
+func servehttp2(i string, j conf) {
+	var c conf
+	var d *conf
+	var lcnf = conf{
+		Port: j.Port,
+		Dir:  j.Dir,
+	}
+	d = c.readconf(i)
+	if lcnf.Port == 0 {
+		if d.Port != 0 {
+			lcnf.Port = d.Port
+		} else {
+			lcnf.Port = dcnf.Port
+		}
+	}
+	if lcnf.Dir == "" || lcnf.Dir == "." || lcnf.Dir == "/" {
+		if d.Dir == "" || d.Dir == "." || d.Dir == "/" {
+			lcnf.Dir = dcnf.Dir
+		} else {
+			lcnf.Dir = d.Dir
+		}
+	}
 	fs := http.FileServer(http.Dir("dir_gokt"))
-	http.Handle("/", fs)
-	srv.ListenAndServe()
+	h2 := &http2.Server{}
+	h1 := &http.Server{
+		Addr:    ":" + strconv.Itoa(lcnf.Port),
+		Handler: h2c.NewHandler(fs, h2),
+	}
+	fmt.Println("Go-kart running on HTTP/2 |", "server directory:", lcnf.Dir, "| port:", lcnf.Port)
+	h1.ListenAndServe()
+}
 
+func elses(j conf) {
+	var c *conf
+	var d conf
+	c = d.readconf(dconf)
+	if c.Http == "1" {
+		servehttp1(dconf, j)
+	} else if c.Http == "s" || c.Http == "S" {
+		servehttps(dconf, j)
+	} else if c.Http == "2" {
+		servehttp2(dconf, j)
+	} else {
+		servehttp1("", j)
+	}
 }
 
 func main() {
@@ -146,7 +185,7 @@ func main() {
 	var bcnf *conf
 	fhelp := flag.Bool("help", false, "Show brief information on how this server works")
 	fconf := flag.String("conf", "", "The configuration file used by this server (.yaml)")
-	fhttp := flag.String("http", "", "The protocol used by this server ('1' for HTTP/1.1 and 's'/'S' for HTTPS/2)")
+	fhttp := flag.String("http", "", "The protocol used by this server ('1' for HTTP/1.1, '2' for HTTP/2, and 's'/'S' for HTTPS/2)")
 	fport := flag.Int("port", 0, "The port number used by this server")
 	fdir := flag.String("dir", "", "The server root directory used by this server")
 	fcert := flag.String("cert", "", "The certificate file used by this server (HTTPS protocol)")
@@ -165,16 +204,11 @@ func main() {
 			servehttp1(*fconf, fcnf)
 		} else if *fhttp == "s" || *fhttp == "S" {
 			servehttps(*fconf, fcnf)
+		} else if *fhttp == "2" {
+			servehttp2(*fconf, fcnf)
 		} else {
 			fmt.Printf("error: unknown protocol %v and %v file not found, switch using default configuration\n", *fhttp, *fconf)
-			bcnf = rcnf.readconf(dconf)
-			if bcnf.Http == "1" {
-				servehttp1(dconf, fcnf)
-			} else if bcnf.Http == "s" || bcnf.Http == "S" {
-				servehttps(dconf, fcnf)
-			} else {
-				servehttp1("", fcnf)
-			}
+			elses(fcnf)
 		}
 	} else if *fhttp == "" && *fconf != "" {
 		bcnf = rcnf.readconf(*fconf)
@@ -182,15 +216,10 @@ func main() {
 			servehttp1(*fconf, fcnf)
 		} else if bcnf.Http == "s" || bcnf.Http == "S" {
 			servehttps(*fconf, fcnf)
+		} else if bcnf.Http == "2" {
+			servehttp2(*fconf, fcnf)
 		} else {
-			bcnf = rcnf.readconf(dconf)
-			if bcnf.Http == "1" {
-				servehttp1(dconf, fcnf)
-			} else if bcnf.Http == "s" || bcnf.Http == "S" {
-				servehttps(dconf, fcnf)
-			} else {
-				servehttp1("", fcnf)
-			}
+			elses(fcnf)
 		}
 	} else if *fhttp != "" && *fconf == "" {
 		if *fhttp == "1" {
@@ -198,26 +227,12 @@ func main() {
 		} else if *fhttp == "s" || *fhttp == "S" {
 			servehttps(dconf, fcnf)
 		} else if *fhttp == "2" {
-			servehttp2()
+			servehttp2(dconf, fcnf)
 		} else {
 			fmt.Printf("error: unknown protocol %v, switch using default configuration\n", *fhttp)
-			bcnf = rcnf.readconf(dconf)
-			if bcnf.Http == "1" {
-				servehttp1(dconf, fcnf)
-			} else if bcnf.Http == "s" || bcnf.Http == "S" {
-				servehttps(dconf, fcnf)
-			} else {
-				servehttp1("", fcnf)
-			}
+			elses(fcnf)
 		}
 	} else if *fhttp == "" && *fconf == "" {
-		bcnf = rcnf.readconf(dconf)
-		if bcnf.Http == "1" {
-			servehttp1(dconf, fcnf)
-		} else if bcnf.Http == "s" || bcnf.Http == "S" {
-			servehttps(dconf, fcnf)
-		} else {
-			servehttp1("", fcnf)
-		}
+		elses(fcnf)
 	}
 }
