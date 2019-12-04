@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"golang.org/x/net/http2"
 	"gopkg.in/yaml.v2"
 )
 
@@ -130,6 +131,16 @@ func servehttps(i string, j conf) {
 	fmt.Printf("error: unable to find %v and/or %v file to run on HTTPS/2", lcnf.Cert, lcnf.Key)
 }
 
+func servehttp2() {
+	var srv http.Server
+	srv.Addr = ":8000"
+	http2.ConfigureServer(&srv, nil)
+	fs := http.FileServer(http.Dir("dir_gokt"))
+	http.Handle("/", fs)
+	srv.ListenAndServe()
+
+}
+
 func main() {
 	var rcnf conf
 	var bcnf *conf
@@ -186,6 +197,8 @@ func main() {
 			servehttp1(dconf, fcnf)
 		} else if *fhttp == "s" || *fhttp == "S" {
 			servehttps(dconf, fcnf)
+		} else if *fhttp == "2" {
+			servehttp2()
 		} else {
 			fmt.Printf("error: unknown protocol %v, switch using default configuration\n", *fhttp)
 			bcnf = rcnf.readconf(dconf)
